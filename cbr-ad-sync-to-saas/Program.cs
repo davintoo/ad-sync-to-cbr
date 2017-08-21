@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Configuration;
 using System.DirectoryServices;
 using System.Collections.Generic;
@@ -44,72 +44,67 @@ namespace cbr_ad_sync_to_saas
                     ConfigurationManager.AppSettings["ad-password"]);
 
                 DirectorySearcher search = new DirectorySearcher(ldapConnection);
-                string chars = "ABCDEFGHIJKLMNOPQRTUVWXYZ";
-                for (int i = 0; i < chars.Length; i++)
+                search.PageSize = 200;
+                search.Filter = ConfigurationManager.AppSettings["ad-filter"];
+                SearchResultCollection results = search.FindAll();
+                if (results.Count > 0)
                 {
-                    search.Filter = String.Format(ConfigurationManager.AppSettings["ad-filter"], chars[i] + "*");
-                    //search.PageSize = 1;
-
-                    SearchResultCollection results = search.FindAll();
-                    if (results.Count > 0)
+                    foreach (SearchResult result in results)
                     {
-                        foreach (SearchResult result in results)
+                        if (result.Properties["samaccountname"].Count == 0)
                         {
-                            if (result.Properties["samaccountname"].Count == 0)
-                            {
-                                continue;
-                            }
-
-                            if(debugAd)
-                            {
-                                foreach (string propertyName in result.Properties.PropertyNames)
-                                {
-                                    Console.WriteLine(propertyName + ": " + (result.Properties[propertyName].Count > 0 ?
-                                        result.Properties[propertyName][0].ToString() : ""));
-                                }
-                                Console.WriteLine("===================");
-                            }
-
-                            Guid id = new Guid((byte[])result.Properties["objectguid"][0]);
-                            item = new List<string>();
-                            item.Add(id.ToString());//id
-                            if (result.Properties["sn"].Count > 0)
-                            {
-                                item.Add(result.Properties["sn"][0].ToString());//secondname
-                            } 
-                            else
-                            {
-                                item.Add("");//secondname
-                            }
-                            if (result.Properties["givenname"].Count > 0)
-                            {
-                                item.Add(result.Properties["givenname"][0].ToString());//firstname
-                            }
-                            else
-                            {
-                                item.Add(result.Properties["cn"][0].ToString());//firstname
-                            }
-                            item.Add("");//patronymics
-                            item.Add(result.Properties["samaccountname"][0].ToString());//login
-                            if (result.Properties["email"].Count > 0)
-                            {
-                                item.Add(result.Properties["email"][0].ToString());//email
-                            }
-                            else
-                            {
-                                item.Add(result.Properties["samaccountname"][0].ToString() + ConfigurationManager.AppSettings["ad-email-sufix"]);//email
-                            }
-                            item.Add("");//password
-                            item.Add("");//birth day
-                            item.Add("");//gender
-                            item.Add("");//city
-                            item.Add("");//department
-                            item.Add("");//position
-                            item.Add("");//tags
-                            item.Add("");//phone
-
-                            items.Add(String.Join(";", item.ToArray()));
+                            continue;
                         }
+
+                        if(debugAd)
+                        {
+                            foreach (string propertyName in result.Properties.PropertyNames)
+                            {
+                                Console.WriteLine(propertyName + ": " + (result.Properties[propertyName].Count > 0 ?
+                                    result.Properties[propertyName][0].ToString() : ""));
+                            }
+                            Console.WriteLine("===================");
+                        }
+
+                        Guid id = new Guid((byte[])result.Properties["objectguid"][0]);
+                        item = new List<string>();
+                        item.Add(id.ToString());//id
+                        if (result.Properties["sn"].Count > 0)
+                        {
+                            item.Add(result.Properties["sn"][0].ToString());//secondname
+                        } 
+                        else
+                        {
+                            item.Add("");//secondname
+                        }
+                        if (result.Properties["givenname"].Count > 0)
+                        {
+                            item.Add(result.Properties["givenname"][0].ToString());//firstname
+                        }
+                        else
+                        {
+                            item.Add(result.Properties["cn"][0].ToString());//firstname
+                        }
+                        item.Add("");//patronymics
+                        item.Add(result.Properties["samaccountname"][0].ToString());//login
+                        if (result.Properties["email"].Count > 0)
+                        {
+                            item.Add(result.Properties["email"][0].ToString());//email
+                        }
+                        else
+                        {
+                            item.Add(result.Properties["samaccountname"][0].ToString() + ConfigurationManager.AppSettings["ad-email-sufix"]);//email
+                        }
+                        item.Add("");//password
+                        item.Add("");//birth day
+                        item.Add("");//gender
+                        item.Add("");//city
+                        item.Add("");//department
+                        item.Add("");//position
+                        item.Add("");//tags
+                        item.Add("");//phone
+
+                        items.Add(String.Join(";", item.ToArray()));
                     }
                 }
 
