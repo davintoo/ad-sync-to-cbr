@@ -19,6 +19,8 @@ namespace cbr_ad_sync_to_saas
         const string AUTH_URI = "/api/rest.php/auth/session";
 
         const string APP_NAME = "Collaborator AD sync";
+        
+        readonly static string[] AD_PROPS_TO_LOAD = {"samaccountname", "City", "Department", "Title", "OfficePhone", "objectguid", "givenname","cn", "sn", "mail"};
 
         static void Main(string[] args)
         {
@@ -69,41 +71,30 @@ namespace cbr_ad_sync_to_saas
                         Guid id = new Guid((byte[])result.Properties["objectguid"][0]);
                         item = new List<string>();
                         item.Add(id.ToString());//id
-                        if (result.Properties["sn"].Count > 0)
+                        item.Add(retrieveADProperty(result, "sn"));//secondname
+                        string givenname = retrieveADProperty(result, "givenname");//firstname
+                        if(String.IsNullOrEmpty(givenname))
                         {
-                            item.Add(result.Properties["sn"][0].ToString());//secondname
-                        } 
-                        else
-                        {
-                            item.Add("");//secondname
+                            givenname = retrieveADProperty(result, "cn");//firstname
                         }
-                        if (result.Properties["givenname"].Count > 0)
-                        {
-                            item.Add(result.Properties["givenname"][0].ToString());//firstname
-                        }
-                        else
-                        {
-                            item.Add(result.Properties["cn"][0].ToString());//firstname
-                        }
+                        item.Add(givenname);//lastname
                         item.Add("");//patronymics
                         item.Add(result.Properties["samaccountname"][0].ToString());//login
-                        if (result.Properties["email"].Count > 0)
+                        string mail = retrieveADProperty(result, "mail");//email
+                        if (String.IsNullOrEmpty(mail))
                         {
-                            item.Add(result.Properties["email"][0].ToString());//email
+                            mail = retrieveADProperty(result, "samaccountname")+ ConfigurationManager.AppSettings["ad-email-sufix"];//email
                         }
-                        else
-                        {
-                            item.Add(result.Properties["samaccountname"][0].ToString() + ConfigurationManager.AppSettings["ad-email-sufix"]);//email
-                        }
+                        item.Add(mail);//email   
                         item.Add("");//password
                         item.Add("");//birth day
                         item.Add("");//gender
-                        item.Add("");//city
-                        item.Add("");//department
-                        item.Add("");//position
+                        item.Add(retrieveADProperty(result, "City"));//city                        
+                        item.Add(retrieveADProperty(result, "Department"));//department                       
+                        item.Add(retrieveADProperty(result, "title"));//position
                         item.Add("");//tags
-                        item.Add("");//phone
-
+                        item.Add(retrieveADProperty(result, "OfficePhone"));//phone
+                        
                         items.Add(String.Join(";", item.ToArray()));
                     }
                 }
@@ -174,7 +165,19 @@ namespace cbr_ad_sync_to_saas
                 Console.ReadKey();
             }
         }
+        
+        private static string retrieveADProperty(SearchResult searchResult, string propertyName)
+        {
+            string result = String.Empty;
+            //check if property exists
+            if (searchResult.Properties[propertyName].Count > 0)
+            {
+                result = searchResult.Properties[propertyName][0].ToString();//retrieving properties
+            }
 
+            return result;
+        }
+        
         private static string authOnRemoteServer(string actionUrl, string login, string password)
         {
             string data = "{\"email\": \"" + login + "\", \"password\": \"" + password + "\"}";
