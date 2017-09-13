@@ -83,7 +83,11 @@ namespace cbr_ad_sync_to_saas
                         string mail = retrieveADProperty(result, "mail");//email
                         if (String.IsNullOrEmpty(mail))
                         {
-                            mail = retrieveADProperty(result, "samaccountname")+ ConfigurationManager.AppSettings["ad-email-sufix"];//email
+                            mail = retrieveADProperty(result, "userprincipalname");//email
+                            if (String.IsNullOrEmpty(mail))
+                            {
+                                mail = retrieveADProperty(result, "samaccountname") + ConfigurationManager.AppSettings["ad-email-sufix"];//email
+                            }
                         }
                         item.Add(mail);//email   
                         item.Add("");//password
