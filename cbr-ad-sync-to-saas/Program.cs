@@ -90,7 +90,7 @@ namespace cbr_ad_sync_to_saas
                             }
                         }
                         item.Add(mail);//email   
-                        item.Add("");//password
+                        item.Add(Guid.NewGuid().ToString());//password
                         item.Add("");//birth day
                         item.Add("");//gender
                         item.Add(retrieveADProperty(result, "City"));//city                        
