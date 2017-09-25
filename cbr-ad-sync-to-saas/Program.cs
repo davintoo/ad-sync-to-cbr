@@ -19,8 +19,8 @@ namespace cbr_ad_sync_to_saas
         const string AUTH_URI = "/api/rest.php/auth/session";
 
         const string APP_NAME = "Collaborator AD sync";
-        
-        readonly static string[] AD_PROPS_TO_LOAD = {"samaccountname", "City", "Department", "Title", "OfficePhone", "objectguid", "givenname","cn", "sn", "mail"};
+
+        readonly static string[] AD_PROPS_TO_LOAD = { "samaccountname", "City", "Department", "Title", "OfficePhone", "objectguid", "givenname", "cn", "sn", "mail" };
 
         static void Main(string[] args)
         {
@@ -30,8 +30,17 @@ namespace cbr_ad_sync_to_saas
                 bool debugAd = false;
                 if (args.Length > 0)
                 {
-                    saveLocal = args[0] == "--save-local";
-                    debugAd = args[0] == "--debug-ad";
+                    foreach (string arg in args)
+                    {
+                        if (arg == "--save-local")
+                        {
+                            saveLocal = true;
+                        }
+                        if (arg == "--debug-ad")
+                        {
+                            debugAd = true;
+                        }
+                    }
                 }
                 Console.WriteLine("Start");
                 Console.WriteLine("Read data from AD ...");
@@ -49,6 +58,14 @@ namespace cbr_ad_sync_to_saas
                 search.PageSize = 200;
                 search.Filter = ConfigurationManager.AppSettings["ad-filter"];
                 SearchResultCollection results = search.FindAll();
+                bool groupsToTags = ConfigurationManager.AppSettings["ad-memberof-to-tags"] != null;
+                List<string> groups = new List<string>();
+                List<string> tags = new List<string>();
+                if (groupsToTags)
+                {
+                    groups = new List<string>(ConfigurationManager.AppSettings["ad-memberof-to-tags"].Split(','));
+                }
+                string memberof;
                 if (results.Count > 0)
                 {
                     foreach (SearchResult result in results)
@@ -58,7 +75,7 @@ namespace cbr_ad_sync_to_saas
                             continue;
                         }
 
-                        if(debugAd)
+                        if (debugAd)
                         {
                             foreach (string propertyName in result.Properties.PropertyNames)
                             {
@@ -73,7 +90,7 @@ namespace cbr_ad_sync_to_saas
                         item.Add(id.ToString());//id
                         item.Add(retrieveADProperty(result, "sn"));//secondname
                         string givenname = retrieveADProperty(result, "givenname");//firstname
-                        if(String.IsNullOrEmpty(givenname))
+                        if (String.IsNullOrEmpty(givenname))
                         {
                             givenname = retrieveADProperty(result, "cn");//firstname
                         }
@@ -96,14 +113,33 @@ namespace cbr_ad_sync_to_saas
                         item.Add(retrieveADProperty(result, "City"));//city                        
                         item.Add(retrieveADProperty(result, "Department"));//department                       
                         item.Add(retrieveADProperty(result, "title"));//position
-                        item.Add("");//tags
+
+
+                        if (groupsToTags)
+                        {
+                            memberof = retrieveADProperty(result, "memberof");
+                            tags = new List<string>();
+                            foreach (string pair in memberof.Split(','))
+                            {
+                                string[] tmp = pair.Split('=');
+                                if (groups.Contains(tmp[0]))
+                                {
+                                    tags.Add(tmp[1]);
+                                }
+                            }
+                            item.Add(String.Join(",", tags.ToArray()));//tags
+                        }
+                        else
+                        {
+                            item.Add("");//tags
+                        }
+
                         item.Add(retrieveADProperty(result, "OfficePhone"));//phone
-                        
                         items.Add(String.Join(";", item.ToArray()));
                     }
                 }
 
-                if(debugAd)
+                if (debugAd)
                 {
                     return;
                 }
@@ -115,7 +151,7 @@ namespace cbr_ad_sync_to_saas
 
                 Console.WriteLine("AD done. Found " + items.Count + " items");
 
-                if(saveLocal)
+                if (saveLocal)
                 {
                     string outFileName = "rusers.csv";
                     Console.WriteLine("Save to file " + outFileName);
@@ -169,7 +205,7 @@ namespace cbr_ad_sync_to_saas
                 Console.ReadKey();
             }
         }
-        
+
         private static string retrieveADProperty(SearchResult searchResult, string propertyName)
         {
             string result = String.Empty;
@@ -181,7 +217,7 @@ namespace cbr_ad_sync_to_saas
 
             return result;
         }
-        
+
         private static string authOnRemoteServer(string actionUrl, string login, string password)
         {
             string data = "{\"email\": \"" + login + "\", \"password\": \"" + password + "\"}";
@@ -198,15 +234,15 @@ namespace cbr_ad_sync_to_saas
         private static string uploadFile(string actionUrl, string authToken, string fileContent)
         {
             byte[] bytes = Encoding.UTF8.GetBytes(fileContent);
-            
-            Dictionary<string, object> postParameters = 
+
+            Dictionary<string, object> postParameters =
                 new Dictionary<string, object>();
             postParameters.Add("auth_token", authToken);
-            postParameters.Add("file", 
+            postParameters.Add("file",
                 new FormUpload.FileParameter(bytes, "file.csv", "text/csv"));
 
             // Create request and receive response
-            HttpWebResponse webResponse = 
+            HttpWebResponse webResponse =
                 FormUpload.MultipartFormDataPost(actionUrl, "sync", postParameters);
 
             // Process response
