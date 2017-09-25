@@ -58,14 +58,14 @@ namespace cbr_ad_sync_to_saas
                 search.PageSize = 200;
                 search.Filter = ConfigurationManager.AppSettings["ad-filter"];
                 SearchResultCollection results = search.FindAll();
-                bool groupsToTags = ConfigurationManager.AppSettings["ad-memberof-to-tags"] != null;
+                bool groupsToTags = ConfigurationManager.AppSettings["ad-distinguishedname-to-tags"] != null;
                 List<string> groups = new List<string>();
                 List<string> tags = new List<string>();
                 if (groupsToTags)
                 {
-                    groups = new List<string>(ConfigurationManager.AppSettings["ad-memberof-to-tags"].Split(','));
+                    groups = new List<string>(ConfigurationManager.AppSettings["ad-distinguishedname-to-tags"].Split(','));
                 }
-                string memberof;
+                string distinguishedname;
                 if (results.Count > 0)
                 {
                     foreach (SearchResult result in results)
@@ -117,9 +117,9 @@ namespace cbr_ad_sync_to_saas
 
                         if (groupsToTags)
                         {
-                            memberof = retrieveADProperty(result, "memberof");
+                            distinguishedname = retrieveADProperty(result, "distinguishedname");
                             tags = new List<string>();
-                            foreach (string pair in memberof.Split(','))
+                            foreach (string pair in distinguishedname.Split(','))
                             {
                                 string[] tmp = pair.Split('=');
                                 if (groups.Contains(tmp[0]))
