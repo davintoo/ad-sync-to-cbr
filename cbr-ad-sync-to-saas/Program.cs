@@ -131,7 +131,7 @@ namespace cbr_ad_sync_to_saas
                                 foreach (string pair in val.Split(','))
                                 {
                                     string[] tmp = pair.Split('=');
-                                    if (tagsFields[field].Contains(tmp[0]))
+                                    if (tagsFields[field].Contains(tmp[0]) && !tags.Contains(tmp[1]))
                                     {
                                         tags.Add(tmp[1]);
                                     }
