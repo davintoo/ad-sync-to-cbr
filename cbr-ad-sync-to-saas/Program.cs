@@ -58,14 +58,20 @@ namespace cbr_ad_sync_to_saas
                 search.PageSize = 200;
                 search.Filter = ConfigurationManager.AppSettings["ad-filter"];
                 SearchResultCollection results = search.FindAll();
-                bool groupsToTags = ConfigurationManager.AppSettings["ad-distinguishedname-to-tags"] != null;
-                List<string> groups = new List<string>();
+                bool extractTags = ConfigurationManager.AppSettings["ad-extract-tags"] != null;
+                //List<string> groups = new List<string>();
                 List<string> tags = new List<string>();
-                if (groupsToTags)
+                Dictionary<string, List<string>> tagsFields = new Dictionary<string, List<string>>();
+                if (extractTags)
                 {
-                    groups = new List<string>(ConfigurationManager.AppSettings["ad-distinguishedname-to-tags"].Split(','));
+                    string[] pairs = ConfigurationManager.AppSettings["ad-extract-tags"].Split(';');
+                    foreach (string pair in pairs)
+                    {
+                        string[] tmp = pair.Split('=');
+                        tagsFields[tmp[0]] = new List<string>(tmp[1].Split(','));
+                    }
                 }
-                string distinguishedname;
+
                 if (results.Count > 0)
                 {
                     foreach (SearchResult result in results)
@@ -115,16 +121,20 @@ namespace cbr_ad_sync_to_saas
                         item.Add(retrieveADProperty(result, "title"));//position
 
 
-                        if (groupsToTags)
+                        if (extractTags)
                         {
-                            distinguishedname = retrieveADProperty(result, "distinguishedname");
                             tags = new List<string>();
-                            foreach (string pair in distinguishedname.Split(','))
+                            string val;
+                            foreach (string field in tagsFields.Keys)
                             {
-                                string[] tmp = pair.Split('=');
-                                if (groups.Contains(tmp[0]))
+                                val = retrieveADProperty(result, field);
+                                foreach (string pair in val.Split(','))
                                 {
-                                    tags.Add(tmp[1]);
+                                    string[] tmp = pair.Split('=');
+                                    if (tagsFields[field].Contains(tmp[0]))
+                                    {
+                                        tags.Add(tmp[1]);
+                                    }
                                 }
                             }
                             item.Add(String.Join(",", tags.ToArray()));//tags
