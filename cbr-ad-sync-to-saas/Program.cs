@@ -88,6 +88,17 @@ namespace cbr_ad_sync_to_saas
                                 Console.WriteLine(propertyName + ": " + (result.Properties[propertyName].Count > 0 ?
                                     result.Properties[propertyName][0].ToString() : ""));
                             }
+
+                            DirectoryEntry obUser = new DirectoryEntry(result.Path);
+                            object obGroups = obUser.Invoke("Groups");
+                            foreach (object ob in (IEnumerable<object>)obGroups)
+                            {
+                                // Create object for each group.
+                                DirectoryEntry obGpEntry = new DirectoryEntry(ob);
+                                //groups.Add(obGpEntry.Name);
+                                Console.WriteLine(obGpEntry.Name);
+                            }
+
                             Console.WriteLine("===================");
                         }
 
