@@ -85,10 +85,22 @@ namespace cbr_ad_sync_to_saas
                         {
                             foreach (string propertyName in result.Properties.PropertyNames)
                             {
-                                Console.WriteLine(propertyName + ": " + (result.Properties[propertyName].Count > 0 ?
-                                    result.Properties[propertyName][0].ToString() : ""));
+                                if (result.Properties[propertyName].Count > 1)
+                                {
+                                    Console.Write(propertyName + ": ");
+                                    foreach (var pv in result.Properties[propertyName])
+                                    {
+                                        Console.Write(pv.ToString());
+                                    }
+                                    Console.WriteLine("");
+                                }
+                                else
+                                {
+                                    Console.WriteLine(propertyName + ": " + (result.Properties[propertyName].Count > 0 ?
+                                        result.Properties[propertyName][0].ToString() : ""));
+                                }
                             }
-                            
+
                             Console.WriteLine("===================");
                         }
 
