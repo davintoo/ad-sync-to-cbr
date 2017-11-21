@@ -233,6 +233,15 @@ namespace cbr_ad_sync_to_saas
         {
             string result = String.Empty;
             //check if property exists
+            if (searchResult.Properties[propertyName].Count > 1)
+            {
+                List<string> values = new List<string>();
+                foreach(var ps in searchResult.Properties[propertyName])
+                {
+                    values.Add(ps.ToString());
+                }
+                result = String.Join(",", values.ToArray());
+            }
             if (searchResult.Properties[propertyName].Count > 0)
             {
                 result = searchResult.Properties[propertyName][0].ToString();//retrieving properties
