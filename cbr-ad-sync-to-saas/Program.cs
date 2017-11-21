@@ -90,7 +90,7 @@ namespace cbr_ad_sync_to_saas
                                     Console.Write(propertyName + ": ");
                                     foreach (var pv in result.Properties[propertyName])
                                     {
-                                        Console.Write(pv.ToString());
+                                        Console.Write(pv.ToString() + ",");
                                     }
                                     Console.WriteLine("");
                                 }
@@ -236,13 +236,12 @@ namespace cbr_ad_sync_to_saas
             if (searchResult.Properties[propertyName].Count > 1)
             {
                 List<string> values = new List<string>();
-                foreach(var ps in searchResult.Properties[propertyName])
+                foreach (var ps in searchResult.Properties[propertyName])
                 {
                     values.Add(ps.ToString());
                 }
                 result = String.Join(",", values.ToArray());
-            }
-            if (searchResult.Properties[propertyName].Count > 0)
+            } else if (searchResult.Properties[propertyName].Count > 0)
             {
                 result = searchResult.Properties[propertyName][0].ToString();//retrieving properties
             }
