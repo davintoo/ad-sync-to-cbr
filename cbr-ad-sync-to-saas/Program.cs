@@ -241,7 +241,8 @@ namespace cbr_ad_sync_to_saas
                     values.Add(ps.ToString());
                 }
                 result = String.Join(",", values.ToArray());
-            } else if (searchResult.Properties[propertyName].Count > 0)
+            }
+            else if (searchResult.Properties[propertyName].Count > 0)
             {
                 result = searchResult.Properties[propertyName][0].ToString();//retrieving properties
             }
@@ -276,11 +277,15 @@ namespace cbr_ad_sync_to_saas
             HttpWebResponse webResponse =
                 FormUpload.MultipartFormDataPost(actionUrl, "sync", postParameters);
 
-            // Process response
-            StreamReader responseReader = new StreamReader(webResponse.GetResponseStream());
-            string fullResponse = responseReader.ReadToEnd();
-            webResponse.Close();
-            //Response.Write(fullResponse);
+            string fullResponse = String.Empty;
+            if (webResponse != null)
+            {
+                // Process response
+                StreamReader responseReader = new StreamReader(webResponse.GetResponseStream());
+                fullResponse = responseReader.ReadToEnd();
+                webResponse.Close();
+                //Response.Write(fullResponse);
+            }
 
             return fullResponse;
         }
@@ -330,7 +335,21 @@ namespace cbr_ad_sync_to_saas
                 requestStream.Close();
             }
 
-            return request.GetResponse() as HttpWebResponse;
+            try
+            {
+                return request.GetResponse() as HttpWebResponse;
+            }
+            catch (WebException ex)
+            {
+                Console.WriteLine("Error: " + ex.ToString());
+                using (var stream = ex.Response.GetResponseStream())
+                using (var reader = new StreamReader(stream))
+                {
+                    Console.WriteLine(reader.ReadToEnd());
+                }
+            }
+
+            return null;
         }
 
         private static byte[] GetMultipartFormData(Dictionary<string, object> postParameters, string boundary)
