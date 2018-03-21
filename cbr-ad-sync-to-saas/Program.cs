@@ -253,14 +253,22 @@ namespace cbr_ad_sync_to_saas
         private static string authOnRemoteServer(string actionUrl, string login, string password)
         {
             string data = "{\"email\": \"" + login + "\", \"password\": \"" + password + "\"}";
-            var content = new StringContent(data, Encoding.UTF8, "application/json");
-            //var content = new FormUrlEncodedContent(values);
-            var response = httpClient.PostAsync(actionUrl, content).Result;
-            if (!response.IsSuccessStatusCode)
+            var httpWebRequest = (HttpWebRequest)WebRequest.Create(actionUrl);
+            httpWebRequest.ContentType = "application/json";
+            httpWebRequest.Method = "POST";
+
+            using (var streamWriter = new StreamWriter(httpWebRequest.GetRequestStream()))
             {
-                return null;//todo add exception here
+                streamWriter.Write(data);
+                streamWriter.Flush();
+                streamWriter.Close();
             }
-            return response.Content.ReadAsStringAsync().Result;
+
+            var httpResponse = (HttpWebResponse)httpWebRequest.GetResponse();
+            using (var streamReader = new StreamReader(httpResponse.GetResponseStream()))
+            {
+                return streamReader.ReadToEnd();
+            }
         }
 
         private static string uploadFile(string actionUrl, string authToken, string fileContent)
