@@ -265,9 +265,13 @@ namespace cbr_ad_sync_to_saas
             }
 
             var httpResponse = (HttpWebResponse)httpWebRequest.GetResponse();
+            string strRes = String.Empty;
             using (var streamReader = new StreamReader(httpResponse.GetResponseStream()))
             {
-                return streamReader.ReadToEnd();
+                strRes = streamReader.ReadToEnd();
+                streamReader.Close();
+                httpResponse.Close();
+                return strRes;
             }
         }
 
