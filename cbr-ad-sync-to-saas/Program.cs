@@ -20,7 +20,7 @@ namespace cbr_ad_sync_to_saas
 
         const string APP_NAME = "Collaborator AD sync";
 
-        readonly static string[] AD_PROPS_TO_LOAD = { "samaccountname", "City", "Department", "Title", "OfficePhone", "objectguid", "givenname", "cn", "sn", "mail" };
+        readonly static string[] AD_PROPS_TO_LOAD = { "samaccountname", "L", "Department", "Title", "telephoneNumber", "objectguid", "givenname", "cn", "sn", "mail", "UserPrincipalName", "C" };
 
         static void Main(string[] args)
         {
@@ -129,7 +129,7 @@ namespace cbr_ad_sync_to_saas
                         item.Add(Guid.NewGuid().ToString());//password
                         item.Add("");//birth day
                         item.Add("");//gender
-                        item.Add(retrieveADProperty(result, "City"));//city                        
+                        item.Add(retrieveADProperty(result, "L") + "-" + retrieveADProperty(result, "C"));//city                        
                         item.Add(retrieveADProperty(result, "Department"));//department                       
                         item.Add(retrieveADProperty(result, "title"));//position
 
@@ -157,7 +157,7 @@ namespace cbr_ad_sync_to_saas
                             item.Add("");//tags
                         }
 
-                        item.Add(retrieveADProperty(result, "OfficePhone"));//phone
+                        item.Add(retrieveADProperty(result, "telephoneNumber"));//phone
                         items.Add(String.Join(";", item.ToArray()));
                     }
                 }
