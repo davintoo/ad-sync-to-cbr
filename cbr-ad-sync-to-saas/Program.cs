@@ -8,6 +8,9 @@ using Newtonsoft.Json;
 using System.Net;
 using System.IO;
 using System.Diagnostics;
+using System.Drawing;
+using System.Drawing.Imaging;
+using System.Security.Cryptography;
 
 namespace cbr_ad_sync_to_saas
 {
@@ -16,7 +19,10 @@ namespace cbr_ad_sync_to_saas
         private static readonly HttpClient httpClient = new HttpClient();
 
         const string UPLOAD_URI = "/api/rest.php/imports-user?action=import";
+        const string UPLOAD_PHOTO_URI = "/api/rest.php/auth/users?action=update-user-photo";
         const string AUTH_URI = "/api/rest.php/auth/session";
+
+        const string PHOTOS_CACHE_DIR = "photos";
 
         const string APP_NAME = "Collaborator AD sync";
 
@@ -28,6 +34,8 @@ namespace cbr_ad_sync_to_saas
             {
                 bool saveLocal = false;
                 bool debugAd = false;
+                List<string> photosForUpload = new List<string>();
+                bool syncPhotos = ConfigurationManager.AppSettings["ad-sync-photos"] == "true";
                 if (args.Length > 0)
                 {
                     foreach (string arg in args)
@@ -159,6 +167,15 @@ namespace cbr_ad_sync_to_saas
 
                         item.Add(retrieveADProperty(result, "telephoneNumber"));//phone
                         items.Add(String.Join(";", item.ToArray()));
+
+                        if (syncPhotos && result.Properties["thumbnailPhoto"].Count > 0)
+                        {
+                            bool isImageChanged = saveImage(id.ToString(), result);
+                            if (isImageChanged)
+                            {
+                                photosForUpload.Add(id.ToString());
+                            }
+                        }
                     }
                 }
 
@@ -167,10 +184,10 @@ namespace cbr_ad_sync_to_saas
                     return;
                 }
 
-                /*foreach (String itm in items)
+                if (syncPhotos)
                 {
-                    Console.WriteLine(itm);
-                }*/
+                    Console.WriteLine("Need update photos: " + photosForUpload.Count);
+                }
 
                 Console.WriteLine("AD done. Found " + items.Count + " items");
 
@@ -195,12 +212,32 @@ namespace cbr_ad_sync_to_saas
 
                 Console.WriteLine("Auth done");
 
-                Console.WriteLine("Upload file to the server ...");
+                Console.WriteLine("Upload csv file to the server ...");
 
                 //byte[] utf8bytes = Encoding.Default.GetBytes(String.Join("\n", items.ToArray()));
 
                 Console.WriteLine(uploadFile(ConfigurationManager.AppSettings["cbr-server"] + UPLOAD_URI,
-                    user.access_token.ToString(), String.Join("\n", items.ToArray())));
+                    user.access_token.ToString(),
+                    Encoding.UTF8.GetBytes(String.Join("\n", items.ToArray())),
+                    "file.csv", "text/csv"));
+
+                Console.WriteLine("Upload csv file done");
+
+                if (syncPhotos)
+                {
+                    Console.WriteLine("Upload photos ...");
+                    if (!Directory.Exists(Directory.GetCurrentDirectory() + "/" + PHOTOS_CACHE_DIR))
+                    {
+                        Directory.CreateDirectory(Directory.GetCurrentDirectory() + "/" + PHOTOS_CACHE_DIR);
+                    }
+                    foreach (string uid in photosForUpload)
+                    {
+                        string photoPath = Directory.GetCurrentDirectory() + "/" + PHOTOS_CACHE_DIR + "/" + uid + ".jpg";
+                        var photoUploadRes = uploadFile(ConfigurationManager.AppSettings["cbr-server"] + UPLOAD_PHOTO_URI, user.access_token.ToString(),
+                            File.ReadAllBytes(photoPath), uid + ".jpg", "image/jpeg", uid);
+                    }
+                    Console.WriteLine("Upload photos done");
+                }
 
                 Console.WriteLine("All done");
 
@@ -227,6 +264,51 @@ namespace cbr_ad_sync_to_saas
                 Console.WriteLine("Press any key to exit...");
                 Console.ReadKey();
             }
+        }
+
+        private static string getImageHash(byte[] byteArray)
+        {
+            string hash;
+            using (SHA1CryptoServiceProvider sha1 = new SHA1CryptoServiceProvider())
+            {
+                hash = Convert.ToBase64String(sha1.ComputeHash(byteArray));
+            }
+            return hash;
+        }
+
+        private static bool saveImage(string uid, SearchResult searchResult)
+        {
+            bool isImageChanged = false;
+            var photoData = searchResult.Properties["thumbnailPhoto"][0] as byte[];
+            if (photoData != null)
+            {
+                string updatedHash = getImageHash(photoData);
+                string originHash = updatedHash;
+                string path = Directory.GetCurrentDirectory() + "/" + PHOTOS_CACHE_DIR + "/" + uid + ".jpg";
+                if (!File.Exists(path))
+                {
+                    isImageChanged = true;
+                    File.Create(path).Dispose();
+                }
+                else
+                {
+                    originHash = getImageHash(File.ReadAllBytes(path));
+                    isImageChanged = updatedHash != originHash;
+                }
+
+                if (isImageChanged)
+                {
+                    //Console.WriteLine("Photo " + uid + " originHash:" + originHash + ", updatedHash:" + updatedHash);
+                    using (FileStream fs = new FileStream(path, FileMode.Open))
+                    {
+                        var wr = new BinaryWriter(fs);
+                        wr.Write(photoData);
+                        wr.Close();
+                    }
+                }
+            }
+
+            return isImageChanged;
         }
 
         private static string retrieveADProperty(SearchResult searchResult, string propertyName)
@@ -275,15 +357,17 @@ namespace cbr_ad_sync_to_saas
             }
         }
 
-        private static string uploadFile(string actionUrl, string authToken, string fileContent)
+        private static string uploadFile(string actionUrl, string authToken, byte[] fileContent, string fileName, string fileMimeType, string uid = null)
         {
-            byte[] bytes = Encoding.UTF8.GetBytes(fileContent);
-
             Dictionary<string, object> postParameters =
                 new Dictionary<string, object>();
             postParameters.Add("auth_token", authToken);
+            if (uid != null)
+            {
+                postParameters.Add("uid", uid);
+            }
             postParameters.Add("file",
-                new FormUpload.FileParameter(bytes, "file.csv", "text/csv"));
+                new FormUpload.FileParameter(fileContent, fileName, fileMimeType));
 
             // Create request and receive response
             HttpWebResponse webResponse =
