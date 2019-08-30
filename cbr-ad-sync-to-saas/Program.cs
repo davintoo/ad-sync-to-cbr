@@ -334,6 +334,8 @@ namespace cbr_ad_sync_to_saas
 
         private static string authOnRemoteServer(string actionUrl, string login, string password)
         {
+            ServicePointManager.SecurityProtocol = SecurityProtocolType.Ssl3 | SecurityProtocolType.Tls | SecurityProtocolType.Tls11 | SecurityProtocolType.Tls12;
+
             string data = "{\"email\": \"" + login + "\", \"password\": \"" + password + "\"}";
             var httpWebRequest = (HttpWebRequest)WebRequest.Create(actionUrl);
             httpWebRequest.ContentType = "application/json";
