@@ -340,6 +340,7 @@ namespace cbr_ad_sync_to_saas
             var httpWebRequest = (HttpWebRequest)WebRequest.Create(actionUrl);
             httpWebRequest.ContentType = "application/json";
             httpWebRequest.Method = "POST";
+            httpWebRequest.UserAgent = "cbr-ad-sync-tool";
 
             using (var streamWriter = new StreamWriter(httpWebRequest.GetRequestStream()))
             {
