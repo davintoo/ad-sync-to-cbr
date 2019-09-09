@@ -32,10 +32,27 @@ namespace cbr_ad_sync_to_saas
         {
             try
             {
-                bool saveLocal = false;
+                string customConfigPath = "";
+                if (args.Length > 0)
+                {
+                    foreach (string arg in args)
+                    {
+                        if (arg.Contains("--config"))
+                        {
+                            customConfigPath = arg.Replace("--config=", "");
+                        }
+                    }
+                }
+                if(customConfigPath.Length > 0)
+                {
+                    ConfigurationManager.OpenExeConfiguration(customConfigPath);
+                }
+
+                bool saveLocal = ConfigurationManager.AppSettings["ad-save-local"] == "true";
                 bool debugAd = false;
                 List<string> photosForUpload = new List<string>();
                 bool syncPhotos = ConfigurationManager.AppSettings["ad-sync-photos"] == "true";
+                bool appendMode = ConfigurationManager.AppSettings["ad-append-mode"] == "true";
                 if (args.Length > 0)
                 {
                     foreach (string arg in args)
@@ -48,6 +65,10 @@ namespace cbr_ad_sync_to_saas
                         {
                             debugAd = true;
                         }
+                        if (arg == "--append-mode")
+                        {
+                            appendMode = true;
+                        }
                     }
                 }
                 Console.WriteLine("Start");
@@ -55,7 +76,10 @@ namespace cbr_ad_sync_to_saas
 
                 List<string> items = new List<string>();
                 List<string> item = new List<string>();
-                items.Add("ID;Фамилия;Имя;Отчество;Логин;Почта;Пароль;Дата рождения;Пол (Ж-1, М-0);Город;Подразделение;Должность;Метки;телефон");
+                if(!appendMode)
+                {
+                    items.Add("ID;Фамилия;Имя;Отчество;Логин;Почта;Пароль;Дата рождения;Пол (Ж-1, М-0);Город;Подразделение;Должность;Метки;телефон");
+                }
 
                 DirectoryEntry ldapConnection = new DirectoryEntry(
                     ConfigurationManager.AppSettings["ad-server"],
@@ -197,7 +221,7 @@ namespace cbr_ad_sync_to_saas
                     Console.WriteLine("Save to file " + outFileName);
                     //String.Join("\n", items.ToArray())
 
-                    StreamWriter file = new StreamWriter(Directory.GetCurrentDirectory() + "/" + outFileName);
+                    StreamWriter file = new StreamWriter(Directory.GetCurrentDirectory() + "/" + outFileName, appendMode);
                     file.WriteLine(String.Join("\n", items.ToArray()));
                     file.Close();
 
