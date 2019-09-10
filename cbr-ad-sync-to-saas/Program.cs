@@ -11,6 +11,7 @@ using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.Security.Cryptography;
+using System.Xml;
 
 namespace cbr_ad_sync_to_saas
 {
@@ -39,15 +40,23 @@ namespace cbr_ad_sync_to_saas
                     {
                         if (arg.Contains("--config"))
                         {
-                            customConfigPath = arg.Replace("--config=", "");
+                            customConfigPath = arg.Replace("--config=", String.Empty);
+                            Console.WriteLine("Use config from " + customConfigPath);
+
+                            var xmlDoc = new XmlDocument();
+                            xmlDoc.Load(customConfigPath);
+                            foreach(string key in ConfigurationManager.AppSettings.AllKeys)
+                            {
+                                var xmlVal = xmlDoc.SelectSingleNode("//appSettings//add[@key='"+ key + "']");
+                                if(xmlVal != null)
+                                {
+                                    ConfigurationManager.AppSettings[key] = xmlVal.Attributes["value"].Value;
+                                }
+                            }
                         }
                     }
                 }
-                if(customConfigPath.Length > 0)
-                {
-                    ConfigurationManager.OpenExeConfiguration(customConfigPath);
-                }
-
+               
                 bool saveLocal = ConfigurationManager.AppSettings["ad-save-local"] == "true";
                 bool debugAd = false;
                 List<string> photosForUpload = new List<string>();
@@ -75,133 +84,17 @@ namespace cbr_ad_sync_to_saas
                 Console.WriteLine("Read data from AD ...");
 
                 List<string> items = new List<string>();
-                List<string> item = new List<string>();
                 if(!appendMode)
                 {
                     items.Add("ID;Фамилия;Имя;Отчество;Логин;Почта;Пароль;Дата рождения;Пол (Ж-1, М-0);Город;Подразделение;Должность;Метки;телефон");
                 }
 
-                DirectoryEntry ldapConnection = new DirectoryEntry(
-                    ConfigurationManager.AppSettings["ad-server"],
-                    ConfigurationManager.AppSettings["ad-username"],
-                    ConfigurationManager.AppSettings["ad-password"]);
-
-                DirectorySearcher search = new DirectorySearcher(ldapConnection);
-                search.PageSize = 200;
-                search.Filter = ConfigurationManager.AppSettings["ad-filter"];
-                SearchResultCollection results = search.FindAll();
-                bool extractTags = ConfigurationManager.AppSettings["ad-extract-tags"] != null;
-                //List<string> groups = new List<string>();
-                List<string> tags = new List<string>();
-                Dictionary<string, List<string>> tagsFields = new Dictionary<string, List<string>>();
-                if (extractTags)
+                string[] ldapConnStrings = ConfigurationManager.AppSettings["ad-server"].Split(';');
+                foreach (string ldapConnString in ldapConnStrings)
                 {
-                    string[] pairs = ConfigurationManager.AppSettings["ad-extract-tags"].Split(';');
-                    foreach (string pair in pairs)
-                    {
-                        string[] tmp = pair.Split('=');
-                        tagsFields[tmp[0]] = new List<string>(tmp[1].Split(','));
-                    }
+                    getLdapData(items, photosForUpload, ldapConnString, debugAd);
                 }
 
-                if (results.Count > 0)
-                {
-                    foreach (SearchResult result in results)
-                    {
-                        if (result.Properties["samaccountname"].Count == 0)
-                        {
-                            continue;
-                        }
-
-                        if (debugAd)
-                        {
-                            foreach (string propertyName in result.Properties.PropertyNames)
-                            {
-                                if (result.Properties[propertyName].Count > 1)
-                                {
-                                    Console.Write(propertyName + ": ");
-                                    foreach (var pv in result.Properties[propertyName])
-                                    {
-                                        Console.Write(pv.ToString() + ",");
-                                    }
-                                    Console.WriteLine("");
-                                }
-                                else
-                                {
-                                    Console.WriteLine(propertyName + ": " + (result.Properties[propertyName].Count > 0 ?
-                                        result.Properties[propertyName][0].ToString() : ""));
-                                }
-                            }
-
-                            Console.WriteLine("===================");
-                        }
-
-                        Guid id = new Guid((byte[])result.Properties["objectguid"][0]);
-                        item = new List<string>();
-                        item.Add(id.ToString());//id
-                        item.Add(retrieveADProperty(result, "sn"));//secondname
-                        string givenname = retrieveADProperty(result, "givenname");//firstname
-                        if (String.IsNullOrEmpty(givenname))
-                        {
-                            givenname = retrieveADProperty(result, "cn");//firstname
-                        }
-                        item.Add(givenname);//lastname
-                        item.Add("");//patronymics
-                        item.Add(result.Properties["samaccountname"][0].ToString());//login
-                        string mail = retrieveADProperty(result, "mail");//email
-                        if (String.IsNullOrEmpty(mail))
-                        {
-                            mail = retrieveADProperty(result, "userprincipalname");//email
-                            if (String.IsNullOrEmpty(mail))
-                            {
-                                mail = retrieveADProperty(result, "samaccountname") + ConfigurationManager.AppSettings["ad-email-sufix"];//email
-                            }
-                        }
-                        item.Add(mail);//email   
-                        item.Add(Guid.NewGuid().ToString());//password
-                        item.Add("");//birth day
-                        item.Add("");//gender
-                        item.Add(retrieveADProperty(result, "L") + "-" + retrieveADProperty(result, "C"));//city                        
-                        item.Add(retrieveADProperty(result, "Department"));//department                       
-                        item.Add(retrieveADProperty(result, "title"));//position
-
-
-                        if (extractTags)
-                        {
-                            tags = new List<string>();
-                            string val;
-                            foreach (string field in tagsFields.Keys)
-                            {
-                                val = retrieveADProperty(result, field);
-                                foreach (string pair in val.Split(','))
-                                {
-                                    string[] tmp = pair.Split('=');
-                                    if (tagsFields[field].Contains(tmp[0]) && !tags.Contains(tmp[1]))
-                                    {
-                                        tags.Add(tmp[1]);
-                                    }
-                                }
-                            }
-                            item.Add(String.Join(",", tags.ToArray()));//tags
-                        }
-                        else
-                        {
-                            item.Add("");//tags
-                        }
-
-                        item.Add(retrieveADProperty(result, "telephoneNumber"));//phone
-                        items.Add(String.Join(";", item.ToArray()));
-
-                        if (syncPhotos && result.Properties["thumbnailPhoto"].Count > 0)
-                        {
-                            bool isImageChanged = saveImage(id.ToString(), result);
-                            if (isImageChanged)
-                            {
-                                photosForUpload.Add(id.ToString());
-                            }
-                        }
-                    }
-                }
 
                 if (debugAd)
                 {
@@ -265,8 +158,6 @@ namespace cbr_ad_sync_to_saas
 
                 Console.WriteLine("All done");
 
-                ldapConnection.Close();
-
                 //Console.ReadKey();
             }
             catch (Exception ex)
@@ -288,6 +179,135 @@ namespace cbr_ad_sync_to_saas
                 Console.WriteLine("Press any key to exit...");
                 Console.ReadKey();
             }
+        }
+
+        private static void getLdapData(List<string> items, List<string> photosForUpload, string ldapConnStr, bool debugAd)
+        {
+            bool syncPhotos = ConfigurationManager.AppSettings["ad-sync-photos"] == "true";
+            List<string> item = new List<string>();
+            DirectoryEntry ldapConnection = new DirectoryEntry(
+                   ldapConnStr,
+                   ConfigurationManager.AppSettings["ad-username"],
+                   ConfigurationManager.AppSettings["ad-password"]);
+
+            DirectorySearcher search = new DirectorySearcher(ldapConnection);
+            search.PageSize = 200;
+            search.Filter = ConfigurationManager.AppSettings["ad-filter"];
+            SearchResultCollection results = search.FindAll();
+            bool extractTags = ConfigurationManager.AppSettings["ad-extract-tags"] != null;
+            //List<string> groups = new List<string>();
+            List<string> tags = new List<string>();
+            Dictionary<string, List<string>> tagsFields = new Dictionary<string, List<string>>();
+            if (extractTags)
+            {
+                string[] pairs = ConfigurationManager.AppSettings["ad-extract-tags"].Split(';');
+                foreach (string pair in pairs)
+                {
+                    string[] tmp = pair.Split('=');
+                    tagsFields[tmp[0]] = new List<string>(tmp[1].Split(','));
+                }
+            }
+
+            if (results.Count > 0)
+            {
+                foreach (SearchResult result in results)
+                {
+                    if (result.Properties["samaccountname"].Count == 0)
+                    {
+                        continue;
+                    }
+
+                    if (debugAd)
+                    {
+                        foreach (string propertyName in result.Properties.PropertyNames)
+                        {
+                            if (result.Properties[propertyName].Count > 1)
+                            {
+                                Console.Write(propertyName + ": ");
+                                foreach (var pv in result.Properties[propertyName])
+                                {
+                                    Console.Write(pv.ToString() + ",");
+                                }
+                                Console.WriteLine("");
+                            }
+                            else
+                            {
+                                Console.WriteLine(propertyName + ": " + (result.Properties[propertyName].Count > 0 ?
+                                    result.Properties[propertyName][0].ToString() : ""));
+                            }
+                        }
+
+                        Console.WriteLine("===================");
+                    }
+
+                    Guid id = new Guid((byte[])result.Properties["objectguid"][0]);
+                    item = new List<string>();
+                    item.Add(id.ToString());//id
+                    item.Add(retrieveADProperty(result, "sn"));//secondname
+                    string givenname = retrieveADProperty(result, "givenname");//firstname
+                    if (String.IsNullOrEmpty(givenname))
+                    {
+                        givenname = retrieveADProperty(result, "cn");//firstname
+                    }
+                    item.Add(givenname);//lastname
+                    item.Add("");//patronymics
+                    item.Add(result.Properties["samaccountname"][0].ToString());//login
+                    string mail = retrieveADProperty(result, "mail");//email
+                    if (String.IsNullOrEmpty(mail))
+                    {
+                        mail = retrieveADProperty(result, "userprincipalname");//email
+                        if (String.IsNullOrEmpty(mail))
+                        {
+                            mail = retrieveADProperty(result, "samaccountname") + ConfigurationManager.AppSettings["ad-email-sufix"];//email
+                        }
+                    }
+                    item.Add(mail);//email   
+                    item.Add(Guid.NewGuid().ToString());//password
+                    item.Add("");//birth day
+                    item.Add("");//gender
+                    item.Add(retrieveADProperty(result, "L") + "-" + retrieveADProperty(result, "C"));//city                        
+                    item.Add(retrieveADProperty(result, "Department"));//department                       
+                    item.Add(retrieveADProperty(result, "title"));//position
+
+
+                    if (extractTags)
+                    {
+                        tags = new List<string>();
+                        string val;
+                        foreach (string field in tagsFields.Keys)
+                        {
+                            val = retrieveADProperty(result, field);
+                            foreach (string pair in val.Split(','))
+                            {
+                                string[] tmp = pair.Split('=');
+                                if (tagsFields[field].Contains(tmp[0]) && !tags.Contains(tmp[1]))
+                                {
+                                    tags.Add(tmp[1]);
+                                }
+                            }
+                        }
+                        item.Add(String.Join(",", tags.ToArray()));//tags
+                    }
+                    else
+                    {
+                        item.Add("");//tags
+                    }
+
+                    item.Add(retrieveADProperty(result, "telephoneNumber"));//phone
+                    items.Add(String.Join(";", item.ToArray()));
+
+                    if (syncPhotos && result.Properties["thumbnailPhoto"].Count > 0)
+                    {
+                        bool isImageChanged = saveImage(id.ToString(), result);
+                        if (isImageChanged)
+                        {
+                            photosForUpload.Add(id.ToString());
+                        }
+                    }
+                }
+            }
+
+            ldapConnection.Close();
         }
 
         private static string getImageHash(byte[] byteArray)
