@@ -22,6 +22,7 @@ namespace cbr_ad_sync_to_saas
         const string UPLOAD_URI = "/api/rest.php/imports-user?action=import";
         const string UPLOAD_PHOTO_URI = "/api/rest.php/auth/users?action=update-user-photo";
         const string AUTH_URI = "/api/rest.php/auth/session";
+        const string BROWSER_ID = "cbr-ad-sync-tool";
 
         const string PHOTOS_CACHE_DIR = "photos";
 
@@ -129,6 +130,7 @@ namespace cbr_ad_sync_to_saas
 
                 Console.WriteLine("Auth done");
 
+                
                 Console.WriteLine("Upload csv file to the server ...");
 
                 //byte[] utf8bytes = Encoding.Default.GetBytes(String.Join("\n", items.ToArray()));
@@ -155,7 +157,7 @@ namespace cbr_ad_sync_to_saas
                     }
                     Console.WriteLine("Upload photos done");
                 }
-
+                
                 Console.WriteLine("All done");
 
                 //Console.ReadKey();
@@ -380,11 +382,11 @@ namespace cbr_ad_sync_to_saas
         {
             ServicePointManager.SecurityProtocol = SecurityProtocolType.Ssl3 | SecurityProtocolType.Tls | SecurityProtocolType.Tls11 | SecurityProtocolType.Tls12;
 
-            string data = "{\"email\": \"" + login + "\", \"password\": \"" + password + "\"}";
             var httpWebRequest = (HttpWebRequest)WebRequest.Create(actionUrl);
             httpWebRequest.ContentType = "application/json";
             httpWebRequest.Method = "POST";
-            httpWebRequest.UserAgent = "cbr-ad-sync-tool";
+            httpWebRequest.UserAgent = BROWSER_ID;
+            string data = "{\"email\": \"" + login + "\", \"password\": \"" + password + "\", \"browser_id\": \"" + BROWSER_ID + "\"}";
 
             using (var streamWriter = new StreamWriter(httpWebRequest.GetRequestStream()))
             {
@@ -409,6 +411,7 @@ namespace cbr_ad_sync_to_saas
             Dictionary<string, object> postParameters =
                 new Dictionary<string, object>();
             postParameters.Add("auth_token", authToken);
+            postParameters.Add("browser_id", BROWSER_ID);
             if (uid != null)
             {
                 postParameters.Add("uid", uid);
