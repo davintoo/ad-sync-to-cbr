@@ -19,8 +19,8 @@ namespace cbr_ad_sync_to_saas
     {
         private static readonly HttpClient httpClient = new HttpClient();
 
-        const string UPLOAD_URI = "/api/rest.php/imports-user?action=import";
-        const string UPLOAD_PHOTO_URI = "/api/rest.php/auth/users?action=update-user-photo";
+        const string UPLOAD_URI = "/api/v2/users-import/csv";
+        const string UPLOAD_PHOTO_URI = "/api/v2/users-import/update-photo";
         const string AUTH_URI = "/api/rest.php/auth/session";
         const string BROWSER_ID = "cbr-ad-sync-tool";
 
