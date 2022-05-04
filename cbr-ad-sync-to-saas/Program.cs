@@ -410,8 +410,6 @@ namespace cbr_ad_sync_to_saas
         {
             Dictionary<string, object> postParameters =
                 new Dictionary<string, object>();
-            postParameters.Add("auth_token", authToken);
-            postParameters.Add("browser_id", BROWSER_ID);
             if (uid != null)
             {
                 postParameters.Add("uid", uid);
@@ -421,7 +419,7 @@ namespace cbr_ad_sync_to_saas
 
             // Create request and receive response
             HttpWebResponse webResponse =
-                FormUpload.MultipartFormDataPost(actionUrl, "sync", postParameters);
+                FormUpload.MultipartFormDataPost(actionUrl, authToken, BROWSER_ID, postParameters);
 
             string fullResponse = String.Empty;
             if (webResponse != null)
@@ -442,17 +440,17 @@ namespace cbr_ad_sync_to_saas
     public static class FormUpload
     {
         private static readonly Encoding encoding = Encoding.UTF8;
-        public static HttpWebResponse MultipartFormDataPost(string postUrl, string userAgent, Dictionary<string, object> postParameters)
+        public static HttpWebResponse MultipartFormDataPost(string postUrl, string authToken, string userAgent, Dictionary<string, object> postParameters)
         {
             string formDataBoundary = String.Format("----------{0:N}", Guid.NewGuid());
             string contentType = "multipart/form-data; boundary=" + formDataBoundary;
 
             byte[] formData = GetMultipartFormData(postParameters, formDataBoundary);
 
-            return PostForm(postUrl, userAgent, contentType, formData);
+            return PostForm(postUrl, authToken, userAgent, contentType, formData);
         }
 
-        private static HttpWebResponse PostForm(string postUrl, string userAgent, string contentType, byte[] formData)
+        private static HttpWebResponse PostForm(string postUrl, string authToken, string userAgent, string contentType, byte[] formData)
         {
             HttpWebRequest request = WebRequest.Create(postUrl) as HttpWebRequest;
 
@@ -465,14 +463,14 @@ namespace cbr_ad_sync_to_saas
             request.Method = "POST";
             request.ContentType = contentType;
             request.UserAgent = userAgent;
-            request.CookieContainer = new CookieContainer();
+            //request.CookieContainer = new CookieContainer();
             request.ContentLength = formData.Length;
             request.Timeout = 60 * 60 * 1000;
-
-            // You could add authentication here as well if needed:
-            // request.PreAuthenticate = true;
-            // request.AuthenticationLevel = System.Net.Security.AuthenticationLevel.MutualAuthRequested;
-            // request.Headers.Add("Authorization", "Basic " + Convert.ToBase64String(System.Text.Encoding.Default.GetBytes("username" + ":" + "password")));
+            request.Accept = "*/*";
+            request.Headers.Add("Cache-Control", "no-cache");
+            request.Headers.Add("Pragma", "no-cache");
+            request.Headers.Add("Accept-Encoding", "gzip, deflate");
+            request.Headers.Add("Authorization", "Bearer " + authToken);
 
             // Send the form data to the request.
             using (Stream requestStream = request.GetRequestStream())
@@ -517,7 +515,7 @@ namespace cbr_ad_sync_to_saas
                     FileParameter fileToUpload = (FileParameter)param.Value;
 
                     // Add just the first part of this param, since we will write the file data directly to the Stream
-                    string header = string.Format("--{0}\r\nContent-Disposition: form-data; name=\"{1}\"; filename=\"{2}\";\r\nContent-Type: {3}\r\n\r\n",
+                    string header = string.Format("--{0}\r\nContent-Disposition: form-data; name=\"{1}\"; filename=\"{2}\"\r\nContent-Type: {3}\r\n\r\n",
                         boundary,
                         param.Key,
                         fileToUpload.FileName ?? param.Key,

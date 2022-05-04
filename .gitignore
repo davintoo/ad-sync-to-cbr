@@ -1,0 +1,6 @@
+.idea
+.vs
+packages
+cbr-ad-sync-to-saas/obj
+cbr-ad-sync-to-saas/bin/Debug
+cbr-ad-sync-to-saas/bin/Release/*.pdb
