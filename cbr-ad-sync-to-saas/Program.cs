@@ -466,10 +466,8 @@ namespace cbr_ad_sync_to_saas
             //request.CookieContainer = new CookieContainer();
             request.ContentLength = formData.Length;
             request.Timeout = 60 * 60 * 1000;
-            request.Accept = "*/*";
             request.Headers.Add("Cache-Control", "no-cache");
             request.Headers.Add("Pragma", "no-cache");
-            request.Headers.Add("Accept-Encoding", "gzip, deflate");
             request.Headers.Add("Authorization", "Bearer " + authToken);
 
             // Send the form data to the request.
