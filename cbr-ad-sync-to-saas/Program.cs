@@ -121,6 +121,7 @@ namespace cbr_ad_sync_to_saas
                 Console.WriteLine("Upload csv file to the server ...");
 
                 //byte[] utf8bytes = Encoding.Default.GetBytes(String.Join("\n", items.ToArray()));
+                ServicePointManager.SecurityProtocol = SecurityProtocolType.Ssl3 | SecurityProtocolType.Tls | SecurityProtocolType.Tls11 | SecurityProtocolType.Tls12;
 
                 Console.WriteLine(uploadFile(ConfigurationManager.AppSettings["cbr-server"] + UPLOAD_URI,
                     ConfigurationManager.AppSettings["cbr-token"],
@@ -363,34 +364,6 @@ namespace cbr_ad_sync_to_saas
             }
 
             return result;
-        }
-
-        private static string authOnRemoteServer(string actionUrl, string login, string password)
-        {
-            ServicePointManager.SecurityProtocol = SecurityProtocolType.Ssl3 | SecurityProtocolType.Tls | SecurityProtocolType.Tls11 | SecurityProtocolType.Tls12;
-
-            var httpWebRequest = (HttpWebRequest)WebRequest.Create(actionUrl);
-            httpWebRequest.ContentType = "application/json";
-            httpWebRequest.Method = "POST";
-            httpWebRequest.UserAgent = BROWSER_ID;
-            string data = "{\"email\": \"" + login + "\", \"password\": \"" + password + "\", \"browser_id\": \"" + BROWSER_ID + "\"}";
-
-            using (var streamWriter = new StreamWriter(httpWebRequest.GetRequestStream()))
-            {
-                streamWriter.Write(data);
-                streamWriter.Flush();
-                streamWriter.Close();
-            }
-
-            var httpResponse = (HttpWebResponse)httpWebRequest.GetResponse();
-            string strRes = String.Empty;
-            using (var streamReader = new StreamReader(httpResponse.GetResponseStream()))
-            {
-                strRes = streamReader.ReadToEnd();
-                streamReader.Close();
-                httpResponse.Close();
-                return strRes;
-            }
         }
 
         private static string uploadFile(string actionUrl, string authToken, byte[] fileContent, string fileName, string fileMimeType, string uid = null)
