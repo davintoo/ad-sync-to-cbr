@@ -4,7 +4,6 @@ using System.DirectoryServices;
 using System.Collections.Generic;
 using System.Net.Http;
 using System.Text;
-using Newtonsoft.Json;
 using System.Net;
 using System.IO;
 using System.Diagnostics;
@@ -118,22 +117,13 @@ namespace cbr_ad_sync_to_saas
 
                     return;
                 }
-
-                Console.WriteLine("Auth on the remote server ...");
-                string userData = authOnRemoteServer(ConfigurationManager.AppSettings["cbr-server"] + AUTH_URI,
-                    ConfigurationManager.AppSettings["cbr-login"], ConfigurationManager.AppSettings["cbr-password"]);
-
-                dynamic user = JsonConvert.DeserializeObject(userData);
-
-                Console.WriteLine("Auth done");
-
                 
                 Console.WriteLine("Upload csv file to the server ...");
 
                 //byte[] utf8bytes = Encoding.Default.GetBytes(String.Join("\n", items.ToArray()));
 
                 Console.WriteLine(uploadFile(ConfigurationManager.AppSettings["cbr-server"] + UPLOAD_URI,
-                    user.access_token.ToString(),
+                    ConfigurationManager.AppSettings["cbr-token"],
                     Encoding.UTF8.GetBytes(String.Join("\n", items.ToArray())),
                     "file.csv", "text/csv"));
 
@@ -149,7 +139,7 @@ namespace cbr_ad_sync_to_saas
                     foreach (string uid in photosForUpload)
                     {
                         string photoPath = Directory.GetCurrentDirectory() + "/" + PHOTOS_CACHE_DIR + "/" + uid + ".jpg";
-                        var photoUploadRes = uploadFile(ConfigurationManager.AppSettings["cbr-server"] + UPLOAD_PHOTO_URI, user.access_token.ToString(),
+                        var photoUploadRes = uploadFile(ConfigurationManager.AppSettings["cbr-server"] + UPLOAD_PHOTO_URI, ConfigurationManager.AppSettings["cbr-token"],
                             File.ReadAllBytes(photoPath), uid + ".jpg", "image/jpeg", uid);
                     }
                     Console.WriteLine("Upload photos done");
@@ -465,8 +455,7 @@ namespace cbr_ad_sync_to_saas
             request.Timeout = 60 * 60 * 1000;
             request.Headers.Add("Cache-Control", "no-cache");
             request.Headers.Add("Pragma", "no-cache");
-            request.Headers.Add("Authorization", "Bearer " + authToken);
-
+            request.Headers.Add("X-Cbr-Authorization", "Bearer " + authToken);
             // Send the form data to the request.
             using (Stream requestStream = request.GetRequestStream())
             {
