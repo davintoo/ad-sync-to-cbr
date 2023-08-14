@@ -8,8 +8,6 @@ using Newtonsoft.Json;
 using System.Net;
 using System.IO;
 using System.Diagnostics;
-using System.Drawing;
-using System.Drawing.Imaging;
 using System.Security.Cryptography;
 using System.Xml;
 
@@ -21,7 +19,6 @@ namespace cbr_ad_sync_to_saas
 
         const string UPLOAD_URI = "/api/v2/users-import/csv";
         const string UPLOAD_PHOTO_URI = "/api/v2/users-import/update-photo";
-        const string AUTH_URI = "/api/rest.php/auth/session";
         const string BROWSER_ID = "cbr-ad-sync-tool";
 
         const string PHOTOS_CACHE_DIR = "photos";
