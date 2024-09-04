@@ -1,5 +1,6 @@
 # ad-sync-to-cbr
 
+## Config parameters
 
 Available config parameters:
 
@@ -12,12 +13,44 @@ Available config parameters:
 - `ad-sync-photos`: Flag for sync photos
 - `ad-save-local`: Otional flag, if set `true` will save extracted from LDAP user to local file `rusers.csv`
 - `ad-append-mode`: Otional flag, if set `true` will append data to file `rusers.csv`
-- `cbr-server`: Collaborator cusromers url in format `https://domain.com`
-- `cbr-login`: Collaborator authorization login
-- `cbr-password`: Collaborator authorization password
+- `cbr-server`: LMS Collaborator cusromers url in format `https://domain.com`
+- `cbr-token`: LMS Collaborator API token
+- `cbr-field-map:XXX`: LMS Collaborator user field map, see datails in 'Mapping'
 
+## CLI run flags
 
 Available run flags:
 - `--save-local`: Will overwrite `ad-save-local` from config
 - `--append-mode`: Will overwrite `ad-append-mode` from config
 - `--debug-ad`: Output selected from LDAP users with attributes to stdout
+
+## User fields mappgin
+
+You can map LMS Collaborator user profile fields to AD fields by add params in to config:
+Key: `cbr-field-map:XXX`, where `XXX` is LMS user field name. 
+Value: AD field name.
+Example: `<add key="cbr-field-map:patronymic" value="initials"/>` will map `patronymic` field in LMS Collaborator to `initials` (Middlename in AD UI).
+LMS Collaborator user avaiable fields:
+- secondname
+- firstname
+- patronymic
+- login
+- email
+- birth_date
+- gender
+- city
+- department
+- position
+- tags
+- phone
+- date_of_employment
+- work_contact
+- date_of_assignment_current_position
+- structure_uid
+- user_field1
+- user_field2
+- user_field3
+- user_field4
+- user_field5
+- customInfo
+- language

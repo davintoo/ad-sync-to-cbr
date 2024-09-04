@@ -22,9 +22,52 @@ namespace cbr_ad_sync_to_saas
 
         const string PHOTOS_CACHE_DIR = "photos";
 
-        const string APP_NAME = "Collaborator AD sync";
+        const string APP_NAME = "Collaborator AD sync v2.1";
 
-        readonly static string[] AD_PROPS_TO_LOAD = { "samaccountname", "L", "Department", "Title", "telephoneNumber", "objectguid", "givenname", "cn", "sn", "mail", "UserPrincipalName", "C" };
+        readonly static Dictionary<string, string> DEFAULT_AD_FIELDS_MAP = new Dictionary<string, string>()
+        {
+            {"secondname", "sn"},
+            {"firstname", "givenName"},
+            {"patronymic", "middleName"},
+            {"login", "sAMAccountName"},
+            {"email", "mail"},
+            {"birth_date", ""},
+            {"city", "l"},
+            {"department", "department"},
+            {"position", "title"},
+            {"phone", "telephoneNumber"},
+            {"work_contact", ""},
+            {"tags", ""}
+        };
+
+        readonly static string[] ALLOWED_CBR_USER_ATTRIBUTES = {
+            "secondname",
+            "firstname",
+            "patronymic",
+            "login",
+            "email",
+            "birth_date",
+            "gender",
+            "city",
+            "department",
+            "position",
+            "tags",
+            "phone",
+            "date_of_employment",
+            "google_id",
+            "work_contact",
+            "date_of_assignment_current_position",
+            "structure_uid",
+            "user_field1",
+            "user_field2",
+            "user_field3",
+            "customInfo",
+            "language",
+            "user_field4",
+            "user_field5"
+        };
+
+        static Dictionary<string, string> fieldsMap = new Dictionary<string, string>();
 
         static void Main(string[] args)
         {
@@ -42,10 +85,10 @@ namespace cbr_ad_sync_to_saas
 
                             var xmlDoc = new XmlDocument();
                             xmlDoc.Load(customConfigPath);
-                            foreach(string key in ConfigurationManager.AppSettings.AllKeys)
+                            foreach (string key in ConfigurationManager.AppSettings.AllKeys)
                             {
-                                var xmlVal = xmlDoc.SelectSingleNode("//appSettings//add[@key='"+ key + "']");
-                                if(xmlVal != null)
+                                var xmlVal = xmlDoc.SelectSingleNode("//appSettings//add[@key='" + key + "']");
+                                if (xmlVal != null)
                                 {
                                     ConfigurationManager.AppSettings[key] = xmlVal.Attributes["value"].Value;
                                 }
@@ -53,7 +96,7 @@ namespace cbr_ad_sync_to_saas
                         }
                     }
                 }
-               
+
                 bool saveLocal = ConfigurationManager.AppSettings["ad-save-local"] == "true";
                 bool debugAd = false;
                 List<string> photosForUpload = new List<string>();
@@ -77,13 +120,27 @@ namespace cbr_ad_sync_to_saas
                         }
                     }
                 }
+
+
+                foreach (string cbrAttr in ALLOWED_CBR_USER_ATTRIBUTES)
+                {
+                    if (ConfigurationManager.AppSettings["cbr-field-map:" + cbrAttr] != null)
+                    {
+                        Program.fieldsMap.Add(cbrAttr, ConfigurationManager.AppSettings["cbr-field-map:" + cbrAttr]);
+                    }
+                    else if (DEFAULT_AD_FIELDS_MAP.ContainsKey(cbrAttr))
+                    {
+                        Program.fieldsMap.Add(cbrAttr, DEFAULT_AD_FIELDS_MAP[cbrAttr]);
+                    }
+                }
+
                 Console.WriteLine("Start");
                 Console.WriteLine("Read data from AD ...");
 
                 List<string> items = new List<string>();
-                if(!appendMode)
+                if (!appendMode)
                 {
-                    items.Add("ID;Фамилия;Имя;Отчество;Логин;Почта;Пароль;Дата рождения;Пол (Ж-1, М-0);Город;Подразделение;Должность;Метки;телефон");
+                    items.Add("ID;Last name;First name;Middle name;Login;Email;Password;Birthdate;Gender (F-1, M-0);City;Department;Position;Tags;Phone;Status(0 - working, 1 - dismissed, 2 - maternity leave, 3 - sick leave);Employment date;Google Id;Work contacts;Date of current position assignment;department code;Adittional field 1;Adittional field  2;Adittional field  3;JSON;Interface language;Adittional field  4;Adittional field  5");
                 }
 
                 string[] ldapConnStrings = ConfigurationManager.AppSettings["ad-server"].Split(';');
@@ -103,7 +160,7 @@ namespace cbr_ad_sync_to_saas
                     Console.WriteLine("Need update photos: " + photosForUpload.Count);
                 }
 
-                Console.WriteLine("AD done. Found " + items.Count + " items");
+                Console.WriteLine("AD done. Found " + (items.Count - 1) + " items");
 
                 if (saveLocal)
                 {
@@ -117,7 +174,7 @@ namespace cbr_ad_sync_to_saas
 
                     return;
                 }
-                
+
                 Console.WriteLine("Upload csv file to the server ...");
 
                 //byte[] utf8bytes = Encoding.Default.GetBytes(String.Join("\n", items.ToArray()));
@@ -145,7 +202,7 @@ namespace cbr_ad_sync_to_saas
                     }
                     Console.WriteLine("Upload photos done");
                 }
-                
+
                 Console.WriteLine("All done");
 
                 //Console.ReadKey();
@@ -233,32 +290,14 @@ namespace cbr_ad_sync_to_saas
                     Guid id = new Guid((byte[])result.Properties["objectguid"][0]);
                     item = new List<string>();
                     item.Add(id.ToString());//id
-                    item.Add(retrieveADProperty(result, "sn"));//secondname
-                    string givenname = retrieveADProperty(result, "givenname");//firstname
-                    if (String.IsNullOrEmpty(givenname))
-                    {
-                        givenname = retrieveADProperty(result, "cn");//firstname
-                    }
-                    item.Add(givenname);//lastname
-                    item.Add("");//patronymics
-                    item.Add(result.Properties["samaccountname"][0].ToString());//login
-                    string mail = retrieveADProperty(result, "mail");//email
-                    if (String.IsNullOrEmpty(mail))
-                    {
-                        mail = retrieveADProperty(result, "userprincipalname");//email
-                        if (String.IsNullOrEmpty(mail))
-                        {
-                            mail = retrieveADProperty(result, "samaccountname") + ConfigurationManager.AppSettings["ad-email-sufix"];//email
-                        }
-                    }
-                    item.Add(mail);//email   
-                    item.Add(Guid.NewGuid().ToString());//password
-                    item.Add("");//birth day
-                    item.Add("");//gender
-                    item.Add(retrieveADProperty(result, "L") + "-" + retrieveADProperty(result, "C"));//city                        
-                    item.Add(retrieveADProperty(result, "Department"));//department                       
-                    item.Add(retrieveADProperty(result, "title"));//position
 
+                    foreach (string cbrAttr in ALLOWED_CBR_USER_ATTRIBUTES)
+                    {
+                        string adAttr = Program.fieldsMap.ContainsKey(cbrAttr) ? Program.fieldsMap[cbrAttr] : String.Empty;
+                        item.Add(retrieveADProperty(result, adAttr));
+                    }
+                    item.Insert(6, Guid.NewGuid().ToString());//password
+                    item.Insert(14, "0");//status
 
                     if (extractTags)
                     {
@@ -276,14 +315,9 @@ namespace cbr_ad_sync_to_saas
                                 }
                             }
                         }
-                        item.Add(String.Join(",", tags.ToArray()));//tags
-                    }
-                    else
-                    {
-                        item.Add("");//tags
+                        item[12] = String.Join(",", tags.ToArray());//tags
                     }
 
-                    item.Add(retrieveADProperty(result, "telephoneNumber"));//phone
                     items.Add(String.Join(";", item.ToArray()));
 
                     if (syncPhotos && result.Properties["thumbnailPhoto"].Count > 0)
@@ -348,6 +382,10 @@ namespace cbr_ad_sync_to_saas
         private static string retrieveADProperty(SearchResult searchResult, string propertyName)
         {
             string result = String.Empty;
+            if (propertyName.Length == 0)
+            {
+                return result;
+            }
             //check if property exists
             if (searchResult.Properties[propertyName].Count > 1)
             {
