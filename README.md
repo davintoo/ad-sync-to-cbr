@@ -1,5 +1,7 @@
 # ad-sync-to-cbr
 
+This is Open-Source utilite for sync users from Microsoft Active Directory and LMS Collaborator. This project is not part of LMS Collaborator see details in License file.
+
 ## Config parameters
 
 Available config parameters:
